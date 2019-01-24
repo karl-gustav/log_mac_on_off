@@ -1,0 +1,72 @@
+#! /usr/bin/env python
+import sys
+import gzip
+from datetime import datetime
+import os
+
+BASE_LOG = os.path.expanduser("~/login_logout.log")
+DATE_FORMAT = "%H:%M:%S (%-d.%-m)"
+ISO8601 = "%Y-%m-%dT%H:%M:%S"
+
+def main():
+	searchDate = getSearchDate(sys.argv)
+
+	with file(BASE_LOG, 'r') as f:
+		entries = parseFile(f, searchDate)
+
+	previousLine = None
+	delta = ""
+	for entry in reversed(entries):
+		if previousLine:
+			delta = timeDelta(entry.timeStamp, previousLine.timeStamp)
+
+		if entry.tag == "login":
+			print "Turned on  at %s %s" % (entry.timeStamp.strftime(DATE_FORMAT), delta)
+		elif entry.tag == "logout":
+			print "Turned off at %s %s" % (entry.timeStamp.strftime(DATE_FORMAT), delta)
+
+		previousLine = entry
+
+def getSearchDate(scriptArguments):
+	if len(scriptArguments) == 2:
+		arg = scriptArguments[1]
+		if arg == '-a':
+			return None
+		elif arg.isdigit():
+			return arg + 'T'
+		else:
+			return arg
+	else:
+		return datetime.now().strftime('%Y-%m-%d')
+
+
+def parseFile(file, searchDate = None):
+	foundDate = False
+	entries = []
+	for line in file:
+		if searchDate:
+			if searchDate in line:
+				foundDate = True
+				entries.append(lineToEntry(line))
+			elif foundDate == True:
+				return entries
+		else:
+			entries.append(lineToEntry(line))
+	return entries
+
+def timeDelta(timeOne, timeTwo):
+	if timeOne and timeTwo:
+		return timeOne - timeTwo
+	else:
+		return ""
+
+def lineToEntry(line):
+	entry = Entry()
+	entry.tag, timeStampString = line.strip().split(' ', 1)
+	entry.timeStamp = datetime.strptime(timeStampString, ISO8601)
+	return entry
+
+class Entry:
+	tag = timeStamp = None
+
+if __name__ == "__main__": main()
